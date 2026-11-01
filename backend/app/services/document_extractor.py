@@ -90,8 +90,8 @@ def validate_file(content: bytes, filename: str, content_type: Optional[str] = N
             return False, "Invalid PDF: missing '%PDF-' header signature", None
         mime = "application/pdf"
     elif file_type == "docx":
-        # ZIP magic bytes PK\x03\x04
-        if not content.startswith(b"PK\x03\x04"):
+        # ZIP magic bytes PK\x03\x04 or any standard zip signature in first 32 bytes
+        if b"PK" not in content[:32]:
             return False, "Invalid DOCX: missing ZIP/OpenXML signature", None
         mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     elif file_type == "html":
@@ -301,44 +301,95 @@ async def _extract_pdf(content: bytes, logs: List[Dict[str, Any]]) -> Tuple[List
 
 
 async def _extract_docx(content: bytes, logs: List[Dict[str, Any]]) -> Tuple[List[ExtractedSection], Optional[str], Optional[str], Optional[str], int]:
-    import docx
-    doc = docx.Document(io.BytesIO(content))
     sections: List[ExtractedSection] = []
     title = None
     author = None
     created = None
 
-    if doc.core_properties:
-        title = doc.core_properties.title or None
-        author = doc.core_properties.author or None
-        if doc.core_properties.created:
-            created = doc.core_properties.created.isoformat()
+    try:
+        import docx
+        doc = docx.Document(io.BytesIO(content))
 
-    current_heading: Optional[str] = None
-    for p in doc.paragraphs:
-        txt = p.text.strip()
-        if not txt:
-            continue
-        if p.style and p.style.name and p.style.name.startswith("Heading"):
-            current_heading = txt
-            continue
-        sections.append(ExtractedSection(text=txt, page=1, section_heading=current_heading))
+        if doc.core_properties:
+            title = doc.core_properties.title or None
+            author = doc.core_properties.author or None
+            if doc.core_properties.created:
+                created = doc.core_properties.created.isoformat()
 
-    # Also extract tables cleanly
-    for table in doc.tables:
-        table_rows = []
-        for row in table.rows:
-            row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
-            if row_text:
-                table_rows.append(row_text)
-        if table_rows:
-            sections.append(
-                ExtractedSection(
-                    text="\n".join(table_rows),
-                    page=1,
-                    section_heading=f"Table ({current_heading or 'Data'})",
+        current_heading: Optional[str] = None
+        for p in doc.paragraphs:
+            txt = p.text.strip()
+            if not txt:
+                continue
+            if p.style and p.style.name and p.style.name.startswith("Heading"):
+                current_heading = txt
+                continue
+            sections.append(ExtractedSection(text=txt, page=1, section_heading=current_heading))
+
+        # Also extract tables cleanly
+        for table in doc.tables:
+            table_rows = []
+            for row in table.rows:
+                row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                if row_text:
+                    table_rows.append(row_text)
+            if table_rows:
+                sections.append(
+                    ExtractedSection(
+                        text="\n".join(table_rows),
+                        page=1,
+                        section_heading=f"Table ({current_heading or 'Data'})",
+                    )
                 )
-            )
+
+        if sections:
+            return sections, title, author, created, max(1, len(sections) // 6)
+    except Exception as exc:
+        logs.append({
+            "stage": "docx_extractor_warning",
+            "timestamp": datetime.utcnow().isoformat(),
+            "message": f"python-docx encountered an issue: {exc}. Activating direct XML zipfile parser.",
+        })
+
+    # Direct zipfile fallback for complex or modern docx files
+    try:
+        import zipfile
+        import xml.etree.ElementTree as ET
+
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            xml_names = ["word/document.xml"] + [
+                n for n in z.namelist() if n.startswith("word/") and (
+                    n.startswith("word/header") or n.startswith("word/footer") or n.startswith("word/footnotes")
+                ) and n.endswith(".xml")
+            ]
+            for xml_name in xml_names:
+                if xml_name in z.namelist():
+                    xml_bytes = z.read(xml_name)
+                    try:
+                        root = ET.fromstring(xml_bytes)
+                        # Find all w:p elements regardless of namespace prefix
+                        for elem in root.iter():
+                            if elem.tag.endswith("}p") or elem.tag == "p":
+                                p_texts = [
+                                    child.text for child in elem.iter()
+                                    if (child.tag.endswith("}t") or child.tag == "t") and child.text
+                                ]
+                                p_full = "".join(p_texts).strip()
+                                if p_full:
+                                    sections.append(ExtractedSection(text=p_full, page=1))
+                    except Exception:
+                        # Regex extraction on <w:t> tags
+                        xml_str = xml_bytes.decode("utf-8", errors="replace")
+                        matches = re.findall(r"<w:t[^>]*>(.*?)</w:t>", xml_str, flags=re.DOTALL)
+                        clean_matches = [m.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").strip() for m in matches if m.strip()]
+                        if clean_matches:
+                            sections.append(ExtractedSection(text=" ".join(clean_matches), page=1))
+    except Exception as zip_exc:
+        logs.append({
+            "stage": "docx_zip_warning",
+            "timestamp": datetime.utcnow().isoformat(),
+            "message": f"Direct zipfile extraction failed: {zip_exc}",
+        })
 
     return sections, title, author, created, max(1, len(sections) // 6)
 

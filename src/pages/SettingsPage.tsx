@@ -287,7 +287,7 @@ export function SettingsPage() {
 
               {keyTestResult && (
                 <Notice
-                  tone={keyTestResult.valid ? 'success' : 'danger'}
+                  tone={keyTestResult.valid ? 'success' : 'error'}
                   icon={
                     keyTestResult.valid ? (
                       <CheckCircle2 className="h-5 w-5" />
@@ -459,7 +459,7 @@ export function SettingsPage() {
                   <p className="text-[11px] text-ink-500">{backendVersion}</p>
                 </div>
               </div>
-              <Badge tone={connectionStatus === 'success' ? 'green' : 'warning'}>
+              <Badge tone={connectionStatus === 'success' ? 'green' : 'orange'}>
                 {connectionStatus === 'success' ? 'Online' : 'Checking'}
               </Badge>
             </div>

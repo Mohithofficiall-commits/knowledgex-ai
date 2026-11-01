@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { chunkSections } from '@/lib/text/chunking';
+import { chunkSections, type TextSection } from '@/lib/text/chunking';
 import { detectFileType, extractSections, MAX_UPLOAD_BYTES, type UploadProblem } from '@/lib/documents/extractText';
 import { DEMO_DOCUMENTS } from '@/data/demoDocuments';
 import type { ChunkWithDocument, DocumentChunk, FileType, KnowledgeDocument } from '@/types/knowledge';
@@ -26,34 +26,55 @@ function isSupabaseConfigured(): boolean {
   return Boolean(url && !url.includes('not-configured'));
 }
 
+let memoryDocsCache: KnowledgeDocument[] | null = null;
+let memoryChunksCache: DocumentChunk[] | null = null;
+
 function getStoredLocalDocs(): KnowledgeDocument[] {
+  if (memoryDocsCache && memoryDocsCache.length > 0) return memoryDocsCache;
   try {
     const raw = localStorage.getItem(LOCAL_DOCS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    memoryDocsCache = parsed;
+    return parsed;
   } catch {
-    return [];
+    return memoryDocsCache || [];
   }
 }
 
 function saveStoredLocalDocs(docs: KnowledgeDocument[]): void {
+  memoryDocsCache = docs;
   try {
     localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(docs));
-  } catch {}
+  } catch (err) {
+    console.warn('LocalStorage limit reached for docs, kept in session cache:', err);
+  }
 }
 
 function getStoredLocalChunks(): DocumentChunk[] {
+  if (memoryChunksCache && memoryChunksCache.length > 0) return memoryChunksCache;
   try {
     const raw = localStorage.getItem(LOCAL_CHUNKS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    memoryChunksCache = parsed;
+    return parsed;
   } catch {
-    return [];
+    return memoryChunksCache || [];
   }
 }
 
 function saveStoredLocalChunks(chunks: DocumentChunk[]): void {
+  memoryChunksCache = chunks;
   try {
     localStorage.setItem(LOCAL_CHUNKS_KEY, JSON.stringify(chunks));
-  } catch {}
+  } catch {
+    try {
+      // If quota exceeded, trim chunks down to recent 150 items
+      const trimmed = chunks.slice(-150);
+      localStorage.setItem(LOCAL_CHUNKS_KEY, JSON.stringify(trimmed));
+    } catch (err) {
+      console.warn('LocalStorage limit reached for chunks, kept in session memory:', err);
+    }
+  }
 }
 
 function mapApiDocument(doc: ApiDocument): KnowledgeDocument {
@@ -174,27 +195,36 @@ export async function addDocumentFromFile(file: File): Promise<AddDocumentResult
       if (resp.ok && resp.document) {
         return { ok: true, document: mapApiDocument(resp.document) };
       }
-      if (resp.problem) {
-        return { ok: false, problem: resp.problem };
+      if (resp.problem === 'duplicate') {
+        return { ok: false, problem: 'duplicate' };
       }
+      console.warn('Backend returned issue:', resp.problem, 'Attempting client extraction fallback.');
     }
   } catch (err) {
     console.warn('Backend upload not available, using client ingestion:', err);
   }
 
   // 2. Client-side structure-aware extraction
-  let extracted;
+  let extracted: TextSection[];
   try {
     extracted = await extractSections(file, fileType);
-  } catch {
+  } catch (err) {
+    console.error('Client-side extraction error:', err);
     return { ok: false, problem: 'failed' };
   }
 
-  const rawChunks = chunkSections(extracted);
-  if (rawChunks.length === 0) return { ok: false, problem: 'noText' };
+  let rawChunks = chunkSections(extracted);
+  if (rawChunks.length === 0) {
+    const combined = extracted.map((s) => s.text).join('\n\n').trim();
+    if (combined.length > 0) {
+      rawChunks = [{ content: combined.slice(0, 1000), page: extracted[0]?.page ?? 1 }];
+    } else {
+      return { ok: false, problem: 'noText' };
+    }
+  }
 
   const docId = `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const title = file.name.replace(/\.[^.]+$/, '');
+  const title = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
 
   const newDoc: KnowledgeDocument = {
     id: docId,

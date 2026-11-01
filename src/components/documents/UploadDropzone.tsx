@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn';
 import { Badge } from '@/components/ui';
 
 export const ACCEPTED_TYPES =
-  '.pdf,.docx,.txt,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/html';
+  '.pdf,.docx,.doc,.txt,.md,.markdown,.csv,.json,.html,.htm,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/html,text/markdown';
 
 interface UploadDropzoneProps {
   onFiles: (files: File[]) => void;
