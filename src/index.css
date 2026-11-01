@@ -3,77 +3,77 @@
 @tailwind utilities;
 
 :root {
-  /* Green #53B54F */
-  --primary-50: #edf9ec;
-  --primary-100: #d7f3d5;
-  --primary-200: #b2e7ad;
-  --primary-300: #85d67e;
-  --primary-400: #60c55b;
-  --primary-500: #53b54f; /* EXACT */
-  --primary-600: #3e983b;
-  --primary-700: #337830;
-  --primary-800: #2c602a;
-  --primary-900: #255024;
+  /* Vibrant Cyan #0FA4AF */
+  --primary-50: #edfbfd;
+  --primary-100: #d5f5f9;
+  --primary-200: #afdde5;
+  --primary-300: #6ed0dc;
+  --primary-400: #2ec0ce;
+  --primary-500: #0fa4af; /* EXACT #0FA4AF */
+  --primary-600: #0a838d;
+  --primary-700: #07666f;
+  --primary-800: #054d54;
+  --primary-900: #02343a;
 
-  /* Cyan #14F6FA */
-  --secondary-50: #ecfeff;
-  --secondary-100: #cffafe;
-  --secondary-200: #a5f9fb;
-  --secondary-300: #5ef5f8;
-  --secondary-400: #14f6fa; /* EXACT */
-  --secondary-500: #00d6dc;
-  --secondary-600: #00adb5;
-  --secondary-700: #04878f;
-  --secondary-800: #0c6a71;
-  --secondary-900: #0f565c;
+  /* Deep Spruce Teal #024950 & Deep Sea Teal #003135 */
+  --secondary-50: #eef7f8;
+  --secondary-100: #d6ebef;
+  --secondary-200: #afdde5;
+  --secondary-300: #6faab3;
+  --secondary-400: #3b7f89;
+  --secondary-500: #1b5e68;
+  --secondary-600: #024950; /* EXACT #024950 */
+  --secondary-700: #013b41;
+  --secondary-800: #003135; /* EXACT #003135 */
+  --secondary-900: #002225;
 
-  /* Purple #C6A9D8 */
-  --accent-50: #faf7fc;
-  --accent-100: #f3edf8;
-  --accent-200: #e8ddf1;
-  --accent-300: #dac4e7;
-  --accent-400: #c6a9d8; /* EXACT */
-  --accent-500: #a881c3;
-  --accent-600: #8c62aa;
-  --accent-700: #734c8e;
-  --accent-800: #5f3f74;
-  --accent-900: #4f355f;
+  /* Deep Spruce Accent #024950 */
+  --accent-50: #f0f7f8;
+  --accent-100: #dbecee;
+  --accent-200: #b9dbe0;
+  --accent-300: #87bfc7;
+  --accent-400: #4f9da8;
+  --accent-500: #267b87;
+  --accent-600: #024950; /* EXACT #024950 */
+  --accent-700: #003b41;
+  --accent-800: #003135; /* EXACT #003135 */
+  --accent-900: #002225;
 
-  /* Orange #F09B04 */
-  --warm-50: #fffaf0;
-  --warm-100: #fef3d6;
-  --warm-200: #fce4ad;
-  --warm-300: #fad079;
-  --warm-400: #f5b63b;
-  --warm-500: #f09b04; /* EXACT */
-  --warm-600: #d27c02;
-  --warm-700: #a75b05;
-  --warm-800: #86470c;
-  --warm-900: #6e3b0e;
+  /* Terra Cotta / Rust Orange #964734 */
+  --warm-50: #fbf5f4;
+  --warm-100: #f6e8e5;
+  --warm-200: #eed0cb;
+  --warm-300: #e1b0a7;
+  --warm-400: #ca7d6e;
+  --warm-500: #b05b49;
+  --warm-600: #964734; /* EXACT #964734 */
+  --warm-700: #7d3828;
+  --warm-800: #662e21;
+  --warm-900: #53261c;
 
-  /* Lavender #E4D8F1 */
-  --lavender-50: #faf8fc;
-  --lavender-100: #f4eef9;
-  --lavender-200: #e4d8f1; /* EXACT */
-  --lavender-300: #d1bfe5;
-  --lavender-400: #b99fd6;
-  --lavender-500: #9e7cc4;
-  --lavender-600: #825ea9;
-  --lavender-700: #6c4d8d;
-  --lavender-800: #594073;
-  --lavender-900: #4b3760;
+  /* Soft Ice Cyan #AFDDE5 */
+  --lavender-50: #f6fafb;
+  --lavender-100: #eef6f8;
+  --lavender-200: #afdde5; /* EXACT #AFDDE5 */
+  --lavender-300: #96cfd9;
+  --lavender-400: #74bac6;
+  --lavender-500: #4da1b0;
+  --lavender-600: #358290;
+  --lavender-700: #266672;
+  --lavender-800: #1c4e57;
+  --lavender-900: #143940;
 
-  /* Ink / Dark Readable Text & Clean Neutral Backgrounds */
-  --ink-50: #f8fafc;
-  --ink-100: #f1f5f9;
-  --ink-200: #e2e8f0;
-  --ink-300: #cbd5e1;
-  --ink-400: #94a3b8;
-  --ink-500: #64748b;
-  --ink-600: #475569;
-  --ink-700: #334155;
-  --ink-800: #1e293b;
-  --ink-900: #0f172a;
+  /* Ink: High-Contrast Crisp Readable Typography & Pure Light Backgrounds (NOT DARK THEME) */
+  --ink-50: #f8fafb;  /* Crisp light background */
+  --ink-100: #edf4f6; /* Soft card/surface tint */
+  --ink-200: #dbe9ed; /* Refined border */
+  --ink-300: #afdde5; /* Soft Ice divider */
+  --ink-400: #6c939a; /* Helper text */
+  --ink-500: #457078; /* Secondary text */
+  --ink-600: #25525a; /* Body paragraph text */
+  --ink-700: #0d3d44; /* Headings */
+  --ink-800: #024950; /* Titles */
+  --ink-900: #003135; /* Main Brand Dark text */
 
   color-scheme: light;
 }
@@ -83,50 +83,34 @@ html {
 }
 
 body {
-  @apply bg-ink-50 text-ink-800 font-sans antialiased selection:bg-brand-lavender selection:text-ink-900;
+  @apply bg-ink-50 text-ink-800 font-sans antialiased selection:bg-brand-ice selection:text-ink-900;
   line-height: 1.5;
 }
 
 h1, h2, h3, h4 {
   letter-spacing: -0.02em;
   line-height: 1.25;
+  color: var(--ink-900);
 }
 
 :focus-visible {
-  outline: 2px solid var(--secondary-500);
+  outline: 2px solid var(--primary-500);
   outline-offset: 2px;
   border-radius: 8px;
 }
 
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: var(--ink-300) transparent;
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
-
-.text-balance {
-  text-wrap: balance;
+::-webkit-scrollbar-track {
+  background: var(--ink-100);
 }
-
-/* Glassmorphism & Refined Cards */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+::-webkit-scrollbar-thumb {
+  background: var(--ink-300);
+  border-radius: 4px;
 }
-
-.glass-panel-dark {
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-500);
 }

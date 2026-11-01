@@ -198,10 +198,10 @@ const NODE_COLORS: Record<
   NodeType,
   { fill: string; stroke: string; text: string; badgeTone: 'green' | 'cyan' | 'purple' | 'orange' }
 > = {
-  concept: { fill: '#53B54F', stroke: '#2e7d32', text: '#1b5e20', badgeTone: 'green' },
-  entity: { fill: '#14F6FA', stroke: '#00b4d8', text: '#0077b6', badgeTone: 'cyan' },
-  topic: { fill: '#C6A9D8', stroke: '#8b5cf6', text: '#6d28d9', badgeTone: 'purple' },
-  reference: { fill: '#F09B04', stroke: '#d97706', text: '#b45309', badgeTone: 'orange' },
+  concept: { fill: '#0FA4AF', stroke: '#024950', text: '#003135', badgeTone: 'cyan' },
+  entity: { fill: '#024950', stroke: '#003135', text: '#ffffff', badgeTone: 'green' },
+  topic: { fill: '#AFDDE5', stroke: '#0FA4AF', text: '#024950', badgeTone: 'purple' },
+  reference: { fill: '#964734', stroke: '#7d3828', text: '#ffffff', badgeTone: 'orange' },
 };
 
 export function KnowledgeGraphPage() {

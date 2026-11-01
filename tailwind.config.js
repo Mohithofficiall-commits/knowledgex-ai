@@ -24,22 +24,27 @@ export default {
         lavender: ramp('lavender'),
         ink: ramp('ink'),
         brand: {
-          green: '#53B54F',
-          orange: '#F09B04',
-          purple: '#C6A9D8',
-          cyan: '#14F6FA',
-          lavender: '#E4D8F1',
+          tealDark: '#003135',
+          tealDeep: '#024950',
+          rust: '#964734',
+          cyan: '#0FA4AF',
+          ice: '#AFDDE5',
+          // Theme Aliases
+          green: '#0FA4AF',
+          orange: '#964734',
+          purple: '#024950',
+          lavender: '#AFDDE5',
         },
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', '"Noto Sans Tamil"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        soft: '0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.05)',
-        lift: '0 4px 6px rgba(15, 23, 42, 0.04), 0 20px 40px rgba(15, 23, 42, 0.08)',
-        glow: '0 0 24px rgba(20, 246, 250, 0.15)',
-        'glow-green': '0 0 24px rgba(83, 181, 79, 0.18)',
-        'glow-purple': '0 0 24px rgba(198, 169, 216, 0.25)',
+        soft: '0 1px 3px rgba(0, 49, 53, 0.04), 0 8px 24px rgba(0, 49, 53, 0.06)',
+        lift: '0 4px 6px rgba(0, 49, 53, 0.05), 0 20px 40px rgba(0, 49, 53, 0.09)',
+        glow: '0 0 24px rgba(15, 164, 175, 0.22)',
+        'glow-green': '0 0 24px rgba(15, 164, 175, 0.25)',
+        'glow-purple': '0 0 24px rgba(2, 73, 80, 0.3)',
       },
       keyframes: {
         'fade-up': {
