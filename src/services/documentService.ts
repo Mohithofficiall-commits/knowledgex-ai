@@ -6,8 +6,8 @@ import type { ChunkWithDocument, DocumentChunk, FileType, KnowledgeDocument } fr
 import { apiListDocuments, apiUploadDocument, apiDeleteDocument, type ApiDocument } from '@/lib/api/documents';
 import { checkBackendHealth } from '@/lib/api/client';
 
-const CHUNK_INSERT_BATCH = 200;
-const CHUNK_PAGE_SIZE = 1000;
+const LOCAL_DOCS_KEY = 'knowledgex_local_documents';
+const LOCAL_CHUNKS_KEY = 'knowledgex_local_chunks';
 
 export type AddDocumentResult =
   | { ok: true; document: KnowledgeDocument }
@@ -21,8 +21,39 @@ interface NewDocument {
   is_demo: boolean;
 }
 
-function throwIfError(error: { message: string } | null) {
-  if (error) throw new Error(error.message);
+function isSupabaseConfigured(): boolean {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  return Boolean(url && !url.includes('not-configured'));
+}
+
+function getStoredLocalDocs(): KnowledgeDocument[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_DOCS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredLocalDocs(docs: KnowledgeDocument[]): void {
+  try {
+    localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(docs));
+  } catch {}
+}
+
+function getStoredLocalChunks(): DocumentChunk[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_CHUNKS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredLocalChunks(chunks: DocumentChunk[]): void {
+  try {
+    localStorage.setItem(LOCAL_CHUNKS_KEY, JSON.stringify(chunks));
+  } catch {}
 }
 
 function mapApiDocument(doc: ApiDocument): KnowledgeDocument {
@@ -35,43 +66,99 @@ function mapApiDocument(doc: ApiDocument): KnowledgeDocument {
     chunk_count: doc.chunk_count,
     is_demo: doc.is_demo,
     content_hash: doc.content_hash,
-    processing_status: doc.processing_status,
-    processing_progress: doc.processing_progress,
+    processing_status: doc.processing_status || 'completed',
+    processing_progress: doc.processing_progress ?? 100,
     processing_error: doc.processing_error,
-    processing_logs: doc.processing_logs,
-    chunk_size: doc.chunk_size,
-    chunk_overlap: doc.chunk_overlap,
-    metadata_json: doc.metadata_json,
-    current_version: doc.current_version,
+    processing_logs: doc.processing_logs || [],
+    chunk_size: doc.chunk_size || 500,
+    chunk_overlap: doc.chunk_overlap || 100,
+    metadata_json: doc.metadata_json || {},
+    current_version: doc.current_version || 1,
     created_at: doc.created_at,
     updated_at: doc.updated_at,
   };
 }
 
-async function insertDocumentWithChunks(document: NewDocument, texts: { content: string; page: number | null }[]) {
-  const { data, error } = await supabase
-    .from('documents')
-    .insert({ ...document, chunk_count: texts.length })
-    .select()
-    .single();
-  throwIfError(error);
-  const created = data as KnowledgeDocument;
-
-  for (let start = 0; start < texts.length; start += CHUNK_INSERT_BATCH) {
-    const batch = texts.slice(start, start + CHUNK_INSERT_BATCH).map((chunk, offset) => ({
-      document_id: created.id,
-      chunk_index: start + offset,
-      page_hint: chunk.page,
-      content: chunk.content,
-    }));
-    const { error: chunkError } = await supabase.from('document_chunks').insert(batch);
-    if (chunkError) {
-      await supabase.from('documents').delete().eq('id', created.id);
-      throw new Error(chunkError.message);
+export async function listDocuments(): Promise<KnowledgeDocument[]> {
+  // 1. Try FastAPI backend first
+  try {
+    const health = await checkBackendHealth();
+    if (health.reachable) {
+      const resp = await apiListDocuments(0, 100);
+      if (resp.documents && resp.documents.length > 0) {
+        return resp.documents.map(mapApiDocument);
+      }
     }
+  } catch (err) {
+    console.warn('FastAPI backend not active, switching to local store:', err);
   }
 
-  return created;
+  // 2. Try Supabase if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data as KnowledgeDocument[];
+      }
+    } catch {}
+  }
+
+  // 3. Fallback to Local Browser Storage Vault
+  let localDocs = getStoredLocalDocs();
+  if (localDocs.length === 0) {
+    // Auto-seed demo documents into local storage so the user always has immediate access
+    await seedDemoDocuments();
+    localDocs = getStoredLocalDocs();
+  }
+
+  return localDocs;
+}
+
+export async function seedDemoDocuments(): Promise<'added' | 'exists'> {
+  const localDocs = getStoredLocalDocs();
+  if (localDocs.some((d) => d.is_demo)) return 'exists';
+
+  const newDocs: KnowledgeDocument[] = [];
+  const newChunks: DocumentChunk[] = getStoredLocalChunks();
+
+  DEMO_DOCUMENTS.forEach((demo, idx) => {
+    const docId = `demo_doc_${idx + 1}`;
+    const rawChunks = chunkSections([{ text: demo.text, page: 1 }]);
+    const doc: KnowledgeDocument = {
+      id: docId,
+      title: demo.title,
+      file_name: demo.fileName,
+      file_type: 'txt',
+      byte_size: new Blob([demo.text]).size,
+      chunk_count: rawChunks.length,
+      is_demo: true,
+      processing_status: 'completed',
+      processing_progress: 100,
+      chunk_size: 500,
+      chunk_overlap: 100,
+      current_version: 1,
+      created_at: new Date(Date.now() - (idx + 1) * 3600000).toISOString(),
+    };
+    newDocs.push(doc);
+
+    rawChunks.forEach((c, cIdx) => {
+      newChunks.push({
+        id: `chunk_${docId}_${cIdx}`,
+        document_id: docId,
+        chunk_index: cIdx,
+        page_hint: 1,
+        content: c.content,
+        section_heading: demo.title,
+      });
+    });
+  });
+
+  saveStoredLocalDocs([...newDocs, ...localDocs]);
+  saveStoredLocalChunks(newChunks);
+  return 'added';
 }
 
 export async function addDocumentFromFile(file: File): Promise<AddDocumentResult> {
@@ -79,7 +166,7 @@ export async function addDocumentFromFile(file: File): Promise<AddDocumentResult
   if (!fileType) return { ok: false, problem: 'unsupported' };
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, problem: 'tooLarge' };
 
-  // Try FastAPI backend first
+  // 1. Try FastAPI backend upload
   try {
     const health = await checkBackendHealth();
     if (health.reachable) {
@@ -92,113 +179,108 @@ export async function addDocumentFromFile(file: File): Promise<AddDocumentResult
       }
     }
   } catch (err) {
-    console.warn('Backend upload fell back to Supabase client:', err);
+    console.warn('Backend upload not available, using client ingestion:', err);
   }
 
-  // Graceful fallback to client-side chunking and Supabase storage
-  let chunks;
+  // 2. Client-side structure-aware extraction
+  let extracted;
   try {
-    chunks = chunkSections(await extractSections(file, fileType));
+    extracted = await extractSections(file, fileType);
   } catch {
     return { ok: false, problem: 'failed' };
   }
-  if (chunks.length === 0) return { ok: false, problem: 'noText' };
 
+  const rawChunks = chunkSections(extracted);
+  if (rawChunks.length === 0) return { ok: false, problem: 'noText' };
+
+  const docId = `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const title = file.name.replace(/\.[^.]+$/, '');
-  const document = await insertDocumentWithChunks(
-    { title, file_name: file.name, file_type: fileType, byte_size: file.size, is_demo: false },
-    chunks,
-  );
-  return { ok: true, document };
-}
 
-export async function listDocuments(): Promise<KnowledgeDocument[]> {
-  // Try FastAPI backend first
-  try {
-    const health = await checkBackendHealth();
-    if (health.reachable) {
-      const resp = await apiListDocuments(0, 100);
-      if (resp.documents && resp.documents.length > 0) {
-        return resp.documents.map(mapApiDocument);
-      }
-    }
-  } catch (err) {
-    console.warn('Backend document list fell back to Supabase client:', err);
-  }
+  const newDoc: KnowledgeDocument = {
+    id: docId,
+    title,
+    file_name: file.name,
+    file_type: fileType,
+    byte_size: file.size,
+    chunk_count: rawChunks.length,
+    is_demo: false,
+    processing_status: 'completed',
+    processing_progress: 100,
+    chunk_size: 500,
+    chunk_overlap: 100,
+    current_version: 1,
+    created_at: new Date().toISOString(),
+  };
 
-  // Fallback to Supabase
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (!error && data) {
-      return data as KnowledgeDocument[];
-    }
-  } catch {}
+  const localChunks = getStoredLocalChunks();
+  rawChunks.forEach((c, idx) => {
+    localChunks.push({
+      id: `chunk_${docId}_${idx}`,
+      document_id: docId,
+      chunk_index: idx,
+      page_hint: c.page,
+      content: c.content,
+      section_heading: title,
+    });
+  });
 
-  return [];
-}
+  saveStoredLocalDocs([newDoc, ...getStoredLocalDocs()]);
+  saveStoredLocalChunks(localChunks);
 
-export async function deleteDocument(documentId: string): Promise<void> {
-  try {
-    const health = await checkBackendHealth();
-    if (health.reachable) {
-      await apiDeleteDocument(documentId);
-    }
-  } catch (err) {
-    console.warn('Backend delete fell back to Supabase client:', err);
-  }
-
-  try {
-    const { error } = await supabase.from('documents').delete().eq('id', documentId);
-    if (error) console.warn('Supabase delete notice:', error.message);
-  } catch {}
-}
-
-export async function seedDemoDocuments(): Promise<'added' | 'exists'> {
-  const currentDocs = await listDocuments();
-  if (currentDocs.some((d) => d.is_demo)) return 'exists';
-
-  for (const demo of DEMO_DOCUMENTS) {
-    const chunks = chunkSections([{ text: demo.text, page: null }]);
-    try {
-      await insertDocumentWithChunks(
-        {
-          title: demo.title,
-          file_name: demo.fileName,
-          file_type: 'txt',
-          byte_size: new Blob([demo.text]).size,
-          is_demo: true,
-        },
-        chunks,
-      );
-    } catch {}
-  }
-  return 'added';
+  return { ok: true, document: newDoc };
 }
 
 export async function fetchChunks(documents: KnowledgeDocument[]): Promise<ChunkWithDocument[]> {
   if (documents.length === 0) return [];
   const titles = new Map(documents.map((doc) => [doc.id, doc.title]));
-  const ids = [...titles.keys()];
-  const results: ChunkWithDocument[] = [];
+  const ids = new Set(titles.keys());
 
-  for (let from = 0; ; from += CHUNK_PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from('document_chunks')
-      .select('id, document_id, chunk_index, page_hint, content')
-      .in('document_id', ids)
-      .order('document_id', { ascending: true })
-      .order('chunk_index', { ascending: true })
-      .range(from, from + CHUNK_PAGE_SIZE - 1);
-    throwIfError(error);
-    const rows = (data ?? []) as DocumentChunk[];
-    for (const row of rows) {
-      results.push({ ...row, documentTitle: titles.get(row.document_id) ?? '' });
+  // 1. Check local storage chunks first
+  const localChunks = getStoredLocalChunks();
+  const matched = localChunks.filter((c) => ids.has(c.document_id));
+
+  if (matched.length > 0) {
+    return matched.map((c) => ({
+      ...c,
+      documentTitle: titles.get(c.document_id) || '',
+    }));
+  }
+
+  // 2. Check demo documents fallback if empty
+  const results: ChunkWithDocument[] = [];
+  for (const doc of documents) {
+    const demo = DEMO_DOCUMENTS.find((d) => d.title === doc.title);
+    if (demo) {
+      const raw = chunkSections([{ text: demo.text, page: 1 }]);
+      raw.forEach((r, idx) => {
+        results.push({
+          id: `chunk_${doc.id}_${idx}`,
+          document_id: doc.id,
+          chunk_index: idx,
+          page_hint: 1,
+          content: r.content,
+          documentTitle: doc.title,
+        });
+      });
     }
-    if (rows.length < CHUNK_PAGE_SIZE) break;
   }
 
   return results;
+}
+
+export async function deleteDocument(documentId: string): Promise<void> {
+  // Remove from backend if reachable
+  try {
+    const health = await checkBackendHealth();
+    if (health.reachable) {
+      await apiDeleteDocument(documentId);
+    }
+  } catch {}
+
+  // Remove from local storage
+  const remainingDocs = getStoredLocalDocs().filter((d) => d.id !== documentId);
+  saveStoredLocalDocs(remainingDocs);
+
+  const remainingChunks = getStoredLocalChunks().filter((c) => c.document_id !== documentId);
+  saveStoredLocalChunks(remainingChunks);
 }

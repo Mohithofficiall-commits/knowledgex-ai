@@ -3,27 +3,32 @@ import {
   ArrowRight,
   Bot,
   Brain,
+  CheckCircle2,
   Cpu,
   FileSearch,
   Filter,
   Info,
+  Key,
   Network,
   RotateCcw,
   Search,
   Send,
+  Shield,
   Sliders,
   Sparkles,
   TriangleAlert,
   User,
+  X,
   Zap,
 } from 'lucide-react';
 import { useTranslation } from '@/i18n/LanguageContext';
 import { useLibrary } from '@/contexts/LibraryContext';
 import { answerQuestion } from '@/lib/rag/answer';
+import { callClientLlm } from '@/lib/rag/client_llm';
 import { routeHref } from '@/lib/router';
 import { fetchChunks } from '@/services/documentService';
 import { addHistoryEntry } from '@/services/historyService';
-import { apiAsk, type AskRequestOptions } from '@/lib/api/rag';
+import { apiAsk, apiTestApiKey, type AskRequestOptions } from '@/lib/api/rag';
 import { checkBackendHealth } from '@/lib/api/client';
 import { Badge, Button, Card, EmptyState, Notice } from '@/components/ui';
 import { AskResultView } from '@/components/results/AskResultView';
@@ -54,6 +59,16 @@ export function AssistantPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'failed'>('idle');
 
+  // Quick API Key Management Drawer
+  const [showKeyDrawer, setShowKeyDrawer] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<string>(() => {
+    return localStorage.getItem('knowledgex_llm_provider') || 'none';
+  });
+  const [inputApiKey, setInputApiKey] = useState<string>(() => {
+    return localStorage.getItem('knowledgex_llm_key') || '';
+  });
+  const [keySavedFeedback, setKeySavedFeedback] = useState<string | null>(null);
+
   const scopeDocuments = useMemo(
     () => (scopeMode === 'all' ? documents : documents.filter((doc) => selectedIds.includes(doc.id))),
     [documents, scopeMode, selectedIds],
@@ -69,6 +84,21 @@ export function AssistantPage() {
     setSelectedIds((current) =>
       current.includes(documentId) ? current.filter((id) => id !== documentId) : [...current, documentId],
     );
+  };
+
+  const handleSaveApiKey = () => {
+    localStorage.setItem('knowledgex_llm_provider', activeProvider);
+    if (inputApiKey.trim()) {
+      localStorage.setItem('knowledgex_llm_key', inputApiKey.trim());
+      setKeySavedFeedback('API key activated! Live generative AI enabled.');
+    } else {
+      localStorage.removeItem('knowledgex_llm_key');
+      setKeySavedFeedback('Offline heuristic mode activated.');
+    }
+    setTimeout(() => {
+      setKeySavedFeedback(null);
+      setShowKeyDrawer(false);
+    }, 1800);
   };
 
   const runQuestion = async (text: string) => {
@@ -97,7 +127,6 @@ export function AssistantPage() {
         try {
           const docIds = scopeDocuments.map((doc) => doc.id);
 
-          // Build conversation history from recent turns for multi-turn conversational memory
           const conversationHistory = turns.slice(0, 3).reverse().flatMap((t) => [
             { role: 'user' as const, content: t.question },
             { role: 'assistant' as const, content: t.result.answer },
@@ -146,11 +175,49 @@ export function AssistantPage() {
         } catch (err: any) {
           console.warn('Backend RAG call fallback to local engine:', err);
           const chunks = await fetchChunks(scopeDocuments);
-          result = answerQuestion(trimmed, chunks);
+          const extractiveResult = answerQuestion(trimmed, chunks);
+          result = extractiveResult;
         }
       } else {
+        // Local engine execution (Offline or GitHub Pages)
         const chunks = await fetchChunks(scopeDocuments);
-        result = answerQuestion(trimmed, chunks);
+        const extractiveResult = answerQuestion(trimmed, chunks);
+
+        // If user configured an API key, call client-side LLM for real live synthesis!
+        if (storedProvider && storedProvider !== 'none' && storedKey) {
+          try {
+            const clientEvidence = extractiveResult.citations.map((c) => ({
+              title: c.documentTitle,
+              page: c.page,
+              text: c.excerpt,
+            }));
+
+            const llmRes = await callClientLlm({
+              provider: storedProvider as any,
+              apiKey: storedKey,
+              query: trimmed,
+              evidence: clientEvidence,
+              language: language as 'en' | 'ta',
+            });
+
+            result = {
+              answer: llmRes.answer,
+              confidence: extractiveResult.confidence,
+              supportScore: 0.95,
+              abstain: false,
+              ragModeUsed: ragMode,
+              llmProvider: llmRes.providerUsed,
+              llmModel: llmRes.modelUsed,
+              isMockLlm: false,
+              citations: extractiveResult.citations,
+            };
+          } catch (clientErr: any) {
+            console.warn('Client LLM direct call failed, using extractive:', clientErr);
+            result = extractiveResult;
+          }
+        } else {
+          result = extractiveResult;
+        }
       }
 
       const newTurn: ChatTurn = {
@@ -230,18 +297,124 @@ export function AssistantPage() {
           <p className="text-sm text-ink-500">{t('assistant.subtitle')}</p>
         </div>
 
-        {turns.length > 0 && (
-          <Button variant="outline" size="sm" onClick={handleClearChat}>
-            <RotateCcw className="h-3.5 w-3.5" />
-            {t('assistant.newQuestion')}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowKeyDrawer((v) => !v)}
+            className="border-brand-purple/40 text-brand-purple hover:bg-brand-purple/10"
+          >
+            <Key className="h-3.5 w-3.5 mr-1" />
+            {activeProvider !== 'none' && inputApiKey ? 'API Key Active' : 'Set API Key'}
           </Button>
-        )}
+
+          {turns.length > 0 && (
+            <Button variant="outline" size="sm" onClick={handleClearChat}>
+              <RotateCcw className="h-3.5 w-3.5" />
+              {t('assistant.newQuestion')}
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* ── Notice Banner ── */}
-      <Notice tone="info" icon={<Info className="h-5 w-5" />}>
-        {t('assistant.demoNotice')}
-      </Notice>
+      {/* ── Quick API Key Configuration Card (Collapsible) ── */}
+      {showKeyDrawer && (
+        <Card className="p-5 border-brand-purple/30 bg-gradient-to-r from-brand-lavender/30 via-white to-accent-50/20 shadow-md space-y-4 animate-fade-in">
+          <div className="flex items-center justify-between border-b border-ink-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-purple text-white shadow-soft">
+                <Key className="h-4 w-4" />
+              </span>
+              <div>
+                <h4 className="text-sm font-bold text-ink-900">LLM Generation Provider & API Key</h4>
+                <p className="text-xs text-ink-500">
+                  Mandatory configuration for live external LLM generation or offline CPU extraction.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowKeyDrawer(false)}
+              className="text-ink-400 hover:text-ink-700 p-1 rounded-lg"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <div className="sm:col-span-4 space-y-1">
+              <label className="text-[11px] font-bold uppercase text-ink-600">Provider</label>
+              <select
+                value={activeProvider}
+                onChange={(e) => setActiveProvider(e.target.value)}
+                className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-xs font-semibold text-ink-900"
+              >
+                <option value="none">Offline Heuristic Extractor</option>
+                <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                <option value="google">Google Gemini (1.5 Flash)</option>
+                <option value="anthropic">Anthropic Claude (3.5 Haiku)</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-6 space-y-1">
+              <label className="text-[11px] font-bold uppercase text-ink-600">API Key Secret</label>
+              <input
+                type="password"
+                placeholder={
+                  activeProvider === 'openai'
+                    ? 'sk-proj-...'
+                    : activeProvider === 'google'
+                    ? 'AIzaSy...'
+                    : activeProvider === 'anthropic'
+                    ? 'sk-ant-...'
+                    : 'No key needed for offline mode'
+                }
+                disabled={activeProvider === 'none'}
+                value={inputApiKey}
+                onChange={(e) => setInputApiKey(e.target.value)}
+                className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-xs font-mono text-ink-900 placeholder:text-ink-400 disabled:bg-ink-100"
+              />
+            </div>
+
+            <div className="sm:col-span-2 flex items-end">
+              <Button size="sm" variant="primary" onClick={handleSaveApiKey} className="w-full h-10">
+                Activate
+              </Button>
+            </div>
+          </div>
+
+          {keySavedFeedback && (
+            <Notice tone="success" icon={<CheckCircle2 className="h-4 w-4" />}>
+              {keySavedFeedback}
+            </Notice>
+          )}
+        </Card>
+      )}
+
+      {/* ── Active Status Banner ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink-200 bg-white p-3.5 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <span
+            className={cn(
+              'h-2.5 w-2.5 rounded-full',
+              activeProvider !== 'none' && inputApiKey ? 'bg-primary-500 animate-pulse' : 'bg-brand-orange',
+            )}
+          />
+          <span className="text-xs font-bold text-ink-800">
+            {activeProvider !== 'none' && inputApiKey
+              ? `Live Generative Engine Active: ${activeProvider.toUpperCase()}`
+              : '⚡ Deterministic Offline Extractive Engine Active (Free & Private)'}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowKeyDrawer(true)}
+          className="text-xs font-bold text-secondary-700 hover:text-secondary-900 underline underline-offset-2"
+        >
+          {activeProvider !== 'none' && inputApiKey ? 'Switch / Reconfigure Key' : 'Configure API Key →'}
+        </button>
+      </div>
 
       {/* ── Input Box & Controls ── */}
       <Card className="p-6 sm:p-7 shadow-soft border-ink-200 space-y-4">

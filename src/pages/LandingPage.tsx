@@ -104,20 +104,38 @@ export function LandingPage() {
       <header
         className={cn(
           'fixed inset-x-0 top-0 z-40 transition-all duration-300',
-          scrolled ? 'border-b border-ink-200/80 bg-white/90 shadow-soft backdrop-blur-md' : 'bg-transparent',
+          scrolled ? 'border-b border-ink-200/80 bg-white/95 shadow-soft backdrop-blur-md' : 'bg-ink-950/60 backdrop-blur-sm border-b border-white/10',
         )}
       >
         <div className="mx-auto flex h-18 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
-          <Logo size="md" />
+          <Logo size="md" tone={scrolled ? 'dark' : 'light'} />
 
           <div className="hidden items-center gap-6 md:flex">
-            <a href="#features" className="text-sm font-semibold text-ink-600 transition hover:text-ink-950">
+            <a
+              href="#features"
+              className={cn(
+                'text-sm font-semibold transition',
+                scrolled ? 'text-ink-600 hover:text-ink-950' : 'text-slate-200 hover:text-white',
+              )}
+            >
               Capabilities
             </a>
-            <a href="#architecture" className="text-sm font-semibold text-ink-600 transition hover:text-ink-950">
+            <a
+              href="#architecture"
+              className={cn(
+                'text-sm font-semibold transition',
+                scrolled ? 'text-ink-600 hover:text-ink-950' : 'text-slate-200 hover:text-white',
+              )}
+            >
               Architecture
             </a>
-            <a href="#preview" className="text-sm font-semibold text-ink-600 transition hover:text-ink-950">
+            <a
+              href="#preview"
+              className={cn(
+                'text-sm font-semibold transition',
+                scrolled ? 'text-ink-600 hover:text-ink-950' : 'text-slate-200 hover:text-white',
+              )}
+            >
               Interactive Preview
             </a>
           </div>
