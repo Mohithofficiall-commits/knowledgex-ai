@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Green #53B54F */
+  --primary-50: #edf9ec;
+  --primary-100: #d7f3d5;
+  --primary-200: #b2e7ad;
+  --primary-300: #85d67e;
+  --primary-400: #60c55b;
+  --primary-500: #53b54f; /* EXACT */
+  --primary-600: #3e983b;
+  --primary-700: #337830;
+  --primary-800: #2c602a;
+  --primary-900: #255024;
+
+  /* Cyan #14F6FA */
+  --secondary-50: #ecfeff;
+  --secondary-100: #cffafe;
+  --secondary-200: #a5f9fb;
+  --secondary-300: #5ef5f8;
+  --secondary-400: #14f6fa; /* EXACT */
+  --secondary-500: #00d6dc;
+  --secondary-600: #00adb5;
+  --secondary-700: #04878f;
+  --secondary-800: #0c6a71;
+  --secondary-900: #0f565c;
+
+  /* Purple #C6A9D8 */
+  --accent-50: #faf7fc;
+  --accent-100: #f3edf8;
+  --accent-200: #e8ddf1;
+  --accent-300: #dac4e7;
+  --accent-400: #c6a9d8; /* EXACT */
+  --accent-500: #a881c3;
+  --accent-600: #8c62aa;
+  --accent-700: #734c8e;
+  --accent-800: #5f3f74;
+  --accent-900: #4f355f;
+
+  /* Orange #F09B04 */
+  --warm-50: #fffaf0;
+  --warm-100: #fef3d6;
+  --warm-200: #fce4ad;
+  --warm-300: #fad079;
+  --warm-400: #f5b63b;
+  --warm-500: #f09b04; /* EXACT */
+  --warm-600: #d27c02;
+  --warm-700: #a75b05;
+  --warm-800: #86470c;
+  --warm-900: #6e3b0e;
+
+  /* Lavender #E4D8F1 */
+  --lavender-50: #faf8fc;
+  --lavender-100: #f4eef9;
+  --lavender-200: #e4d8f1; /* EXACT */
+  --lavender-300: #d1bfe5;
+  --lavender-400: #b99fd6;
+  --lavender-500: #9e7cc4;
+  --lavender-600: #825ea9;
+  --lavender-700: #6c4d8d;
+  --lavender-800: #594073;
+  --lavender-900: #4b3760;
+
+  /* Ink / Dark Readable Text & Clean Neutral Backgrounds */
+  --ink-50: #f8fafc;
+  --ink-100: #f1f5f9;
+  --ink-200: #e2e8f0;
+  --ink-300: #cbd5e1;
+  --ink-400: #94a3b8;
+  --ink-500: #64748b;
+  --ink-600: #475569;
+  --ink-700: #334155;
+  --ink-800: #1e293b;
+  --ink-900: #0f172a;
+
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-ink-50 text-ink-800 font-sans antialiased selection:bg-brand-lavender selection:text-ink-900;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4 {
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+:focus-visible {
+  outline: 2px solid var(--secondary-500);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-300) transparent;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Glassmorphism & Refined Cards */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-panel-dark {
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
