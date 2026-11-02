@@ -1,5 +1,9 @@
 # KnowledgeX AI — Personal Knowledge Intelligence Platform
 
+<p align="center">
+  <img src="./assets/thumbnail.jpg" alt="KnowledgeX AI Project Banner" width="100%" style="border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 49, 53, 0.15);" />
+</p>
+
 > **Evidence-Attributed Advanced RAG & Comparative Reasoning Engine**  
 > *Developed with React 18, TypeScript, Tailwind CSS, Python FastAPI, PostgreSQL / SQLite, and Qdrant.*
 
